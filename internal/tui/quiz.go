@@ -204,7 +204,12 @@ func (m QuizModel) View() string {
 
 	// Render guessing/feedback states
 	if m.state == stateGuessing {
-		body.WriteString(styleSearchBox.Width(cardW - 4).Render(m.input.View()) + "\n")
+		boxW := cardW - 4
+		if boxW < 10 {
+			boxW = 10
+		}
+		m.input.Width = boxW - 2
+		body.WriteString(styleSearchBox.Width(boxW).Render(m.input.View()) + "\n")
 	} else {
 		// Answered feedback state
 		var feedback string

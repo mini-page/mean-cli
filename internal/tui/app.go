@@ -665,11 +665,11 @@ func (m Model) viewSearchBoxInput() string {
 		style = styleSearchBox.BorderForeground(colorBorder)
 	}
 
-	tiWidth := m.width - 38
+	tiWidth := m.width - 40
 	if tiWidth < 10 {
 		tiWidth = 10
 	}
-	m.input.Width = tiWidth
+	m.input.Width = tiWidth - 2
 	return style.Width(tiWidth).Render(m.input.View())
 }
 
