@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/umang/mean-cli/internal/api"
 	"github.com/umang/mean-cli/internal/audio"
 	"github.com/umang/mean-cli/internal/cache"
+	"github.com/umang/mean-cli/internal/export"
 	"github.com/umang/mean-cli/internal/models"
 )
 
@@ -23,11 +25,31 @@ type wordResultMsg struct{ word *models.Word }
 type wordErrMsg struct{ err error }
 type favToggledMsg struct{ isFav bool }
 type clearCopyNotificationMsg struct{}
+type clearExportNotificationMsg struct{}
+
+type relatedResultMsg struct{ words []string }
+type phrasesResultMsg struct{ phrases []string }
+type idiomsResultMsg struct{ idioms []string }
+type usageResultMsg struct{ casual, formal, academic string }
+
+type compareResultMsg struct {
+	w1  *models.Word
+	w2  *models.Word
+	err error
+}
+
+type translateResultMsg struct {
+	result string
+	err    error
+}
 
 type tabType int
 
 const (
 	tabSearch tabType = iota
+	tabCompare
+	tabTranslate
+	tabDomain
 	tabFavorites
 	tabRecent
 	tabLearn
@@ -35,6 +57,14 @@ const (
 	tabGames
 	tabStats
 )
+
+var domainVocabs = map[string][]string{
+	"cybersecurity": {"threat", "exploit", "mitigation", "forensics", "payload", "vulnerability", "encryption", "firewall", "phishing", "malware"},
+	"finance":       {"liquidity", "arbitrage", "equity", "leverage", "volatility", "portfolio", "dividend", "amortization", "depreciation", "commodity"},
+	"medical":       {"diagnosis", "prognosis", "chronic", "acute", "biopsy", "epidemic", "immunity", "symptom", "pathogen", "outpatient"},
+	"legal":         {"litigation", "jurisdiction", "plaintiff", "defendant", "affidavit", "subpoena", "contract", "testimony", "tort", "statute"},
+	"business":      {"synergy", "paradigm", "scalability", "monetize", "leverage", "deliverable", "milestone", "stakeholder", "retention", "turnover"},
+}
 
 // Model is the root Bubble Tea model for the TUI.
 type Model struct {
@@ -54,8 +84,39 @@ type Model struct {
 	isFav     bool
 	loading   bool
 	copied    bool
+	exported  string
 	err       string
 	searching bool // text input focused
+
+	// Extra lookup details (related, usage, phrases, idioms)
+	relatedWords []string
+	phrases      []string
+	idioms       []string
+	usageCasual  string
+	usageFormal  string
+	usageAcademic string
+
+	// Compare tab state
+	compareInput1 textinput.Model
+	compareInput2 textinput.Model
+	compareActive int // 0 = input 1, 1 = input 2
+	word1         *models.Word
+	word2         *models.Word
+	compareErr    string
+	compareVp     viewport.Model
+
+	// Translate tab state
+	transInput1  textinput.Model // text
+	transInput2  textinput.Model // lang
+	transActive  int // 0 = input 1, 1 = input 2
+	transResult  string
+	transErr     string
+	transLoading bool
+
+	// Domain tab state
+	domainCursor int
+	domainActive bool // true if listing domain words
+	wordCursor   int  // index in domain word list
 
 	// List cursors
 	listCursor int
@@ -94,17 +155,56 @@ func New(db *cache.DB, deck []models.Word) Model {
 	gc := NewGameCenterModel(db, deck)
 	gc.Embedded = true
 
+	// Compare inputs & viewport
+	c1 := textinput.New()
+	c1.Placeholder = "Word 1 (e.g. affect)"
+	c1.Prompt = "⚖️  "
+	c1.PromptStyle = lipgloss.NewStyle().Foreground(colorAccent)
+	c1.TextStyle = lipgloss.NewStyle().Foreground(colorText)
+	c1.PlaceholderStyle = lipgloss.NewStyle().Foreground(colorMuted)
+	c1.Focus()
+
+	c2 := textinput.New()
+	c2.Placeholder = "Word 2 (e.g. effect)"
+	c2.Prompt = "⚖️  "
+	c2.PromptStyle = lipgloss.NewStyle().Foreground(colorAccent)
+	c2.TextStyle = lipgloss.NewStyle().Foreground(colorText)
+	c2.PlaceholderStyle = lipgloss.NewStyle().Foreground(colorMuted)
+
+	cvp := viewport.New(0, 0)
+
+	// Translate inputs
+	tr1 := textinput.New()
+	tr1.Placeholder = "Text to translate"
+	tr1.Prompt = "🌐 "
+	tr1.PromptStyle = lipgloss.NewStyle().Foreground(colorAccent)
+	tr1.TextStyle = lipgloss.NewStyle().Foreground(colorText)
+	tr1.PlaceholderStyle = lipgloss.NewStyle().Foreground(colorMuted)
+	tr1.Focus()
+
+	tr2 := textinput.New()
+	tr2.Placeholder = "Target language (e.g. es, Hindi)"
+	tr2.Prompt = "🏳️  "
+	tr2.PromptStyle = lipgloss.NewStyle().Foreground(colorAccent)
+	tr2.TextStyle = lipgloss.NewStyle().Foreground(colorText)
+	tr2.PlaceholderStyle = lipgloss.NewStyle().Foreground(colorMuted)
+
 	return Model{
-		db:         db,
-		deck:       deck,
-		input:      ti,
-		spinner:    sp,
-		viewport:   vp,
-		searching:  true,
-		activeTab:  tabSearch,
-		focusMenu:  true,
-		menuCursor: 0,
-		gameCenter: gc,
+		db:            db,
+		deck:          deck,
+		input:         ti,
+		spinner:       sp,
+		viewport:      vp,
+		searching:     true,
+		activeTab:     tabSearch,
+		focusMenu:     true,
+		menuCursor:    0,
+		gameCenter:    gc,
+		compareInput1: c1,
+		compareInput2: c2,
+		compareVp:     cvp,
+		transInput1:   tr1,
+		transInput2:   tr2,
 	}
 }
 
@@ -164,10 +264,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.menuCursor > 0 {
 					m.menuCursor--
 				} else {
-					m.menuCursor = 6
+					m.menuCursor = 9
 				}
 			case "down", "j":
-				if m.menuCursor < 6 {
+				if m.menuCursor < 9 {
 					m.menuCursor++
 				} else {
 					m.menuCursor = 0
@@ -188,6 +288,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.searching = false
 					m.input.Blur()
 				}
+
+				// Focus compare inputs if tabCompare selected
+				if m.activeTab == tabCompare {
+					m.compareActive = 0
+					m.compareInput1.Focus()
+					m.compareInput2.Blur()
+				} else {
+					m.compareInput1.Blur()
+					m.compareInput2.Blur()
+				}
+
+				// Focus translate inputs if tabTranslate selected
+				if m.activeTab == tabTranslate {
+					m.transActive = 0
+					m.transInput1.Focus()
+					m.transInput2.Blur()
+				} else {
+					m.transInput1.Blur()
+					m.transInput2.Blur()
+				}
 			}
 		}
 		return m, nil
@@ -201,6 +321,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusMenu = true
 			m.searching = false
 			m.input.Blur()
+			m.compareInput1.Blur()
+			m.compareInput2.Blur()
+			m.transInput1.Blur()
+			m.transInput2.Blur()
 			return m, nil
 		}
 	}
@@ -247,6 +371,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, m.resetCopyNotificationCmd()
 					}
 				}
+			case "e":
+				if !m.searching && m.word != nil {
+					mdContent := export.ToMarkdown(m.word)
+					txtContent := export.ToText(m.word)
+					err1 := os.WriteFile(m.word.Word+".md", []byte(mdContent), 0644)
+					err2 := os.WriteFile(m.word.Word+".txt", []byte(txtContent), 0644)
+					if err1 == nil && err2 == nil {
+						m.exported = "exported md & txt!"
+					} else if err1 == nil {
+						m.exported = "exported md!"
+					} else if err2 == nil {
+						m.exported = "exported txt!"
+					} else {
+						m.exported = "export failed"
+					}
+					return m, m.resetExportNotificationCmd()
+				}
 			case "p":
 				if !m.searching && m.word != nil {
 					for _, ph := range m.word.Phonetics {
@@ -255,6 +396,119 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							break
 						}
 					}
+				}
+			}
+		}
+
+	case tabCompare:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "tab":
+				m.compareActive = 1 - m.compareActive
+				if m.compareActive == 0 {
+					m.compareInput1.Focus()
+					m.compareInput2.Blur()
+				} else {
+					m.compareInput1.Blur()
+					m.compareInput2.Focus()
+				}
+			case "enter":
+				w1Name := strings.TrimSpace(m.compareInput1.Value())
+				w2Name := strings.TrimSpace(m.compareInput2.Value())
+				if w1Name != "" && w2Name != "" {
+					m.compareErr = ""
+					m.word1 = nil
+					m.word2 = nil
+					return m, m.compareTuiCmd(w1Name, w2Name)
+				}
+			}
+		}
+		var cmd1, cmd2, cmdVp tea.Cmd
+		m.compareInput1, cmd1 = m.compareInput1.Update(msg)
+		m.compareInput2, cmd2 = m.compareInput2.Update(msg)
+		m.compareVp, cmdVp = m.compareVp.Update(msg)
+		cmds = append(cmds, cmd1, cmd2, cmdVp)
+
+	case tabTranslate:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "tab":
+				m.transActive = 1 - m.transActive
+				if m.transActive == 0 {
+					m.transInput1.Focus()
+					m.transInput2.Blur()
+				} else {
+					m.transInput1.Blur()
+					m.transInput2.Focus()
+				}
+			case "enter":
+				text := strings.TrimSpace(m.transInput1.Value())
+				lang := strings.TrimSpace(m.transInput2.Value())
+				if text != "" && lang != "" {
+					m.transLoading = true
+					m.transResult = ""
+					m.transErr = ""
+					return m, m.translateTuiCmd(text, lang)
+				}
+			}
+		}
+		var cmd1, cmd2 tea.Cmd
+		m.transInput1, cmd1 = m.transInput1.Update(msg)
+		m.transInput2, cmd2 = m.transInput2.Update(msg)
+		cmds = append(cmds, cmd1, cmd2)
+
+	case tabDomain:
+		domains := []string{"cybersecurity", "finance", "medical", "legal", "business"}
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "up", "k":
+				if m.domainActive {
+					if m.wordCursor > 0 {
+						m.wordCursor--
+					}
+				} else {
+					if m.domainCursor > 0 {
+						m.domainCursor--
+					}
+				}
+			case "down", "j":
+				if m.domainActive {
+					domainName := domains[m.domainCursor]
+					list := domainVocabs[domainName]
+					if m.wordCursor < len(list)-1 {
+						m.wordCursor++
+					}
+				} else {
+					if m.domainCursor < len(domains)-1 {
+						m.domainCursor++
+					}
+				}
+			case "enter":
+				if m.domainActive {
+					domainName := domains[m.domainCursor]
+					list := domainVocabs[domainName]
+					word := list[m.wordCursor]
+					m.activeTab = tabSearch
+					m.menuCursor = 0
+					m.loading = true
+					m.err = ""
+					m.word = nil
+					m.copied = false
+					m.searching = false
+					m.input.Blur()
+					return m, m.lookupCmd(word)
+				} else {
+					m.domainActive = true
+					m.wordCursor = 0
+				}
+			case "esc", "left", "h":
+				if m.domainActive {
+					m.domainActive = false
+				} else {
+					m.focusMenu = true
 				}
 			}
 		}
@@ -323,6 +577,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.input.Blur()
 					return m, m.lookupCmd(word)
 				}
+			case "c":
+				_ = m.db.ClearHistory()
+				m.listCursor = 0
 			}
 		}
 
@@ -355,6 +612,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+
+	case tabStats:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "c":
+				_ = m.db.ClearWordCache()
+				m.exported = "cache cleared!"
+				return m, m.resetExportNotificationCmd()
+			}
+		}
 	}
 
 	// ─── Global Background Message Triggers ───
@@ -363,9 +631,59 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.word = msg.word
 		m.copied = false
-		m.refreshViewport()
 		isFav, _ := m.db.IsFavorite(m.word.Word)
 		m.isFav = isFav
+
+		m.relatedWords = nil
+		m.phrases = nil
+		m.idioms = nil
+		m.usageCasual = ""
+		m.usageFormal = ""
+		m.usageAcademic = ""
+
+		m.refreshViewport()
+
+		return m, tea.Batch(
+			m.fetchRelatedCmd(m.word.Word),
+			m.fetchPhrasesCmd(m.word.Word),
+			m.fetchIdiomsCmd(m.word.Word),
+			m.fetchUsageCmd(m.word),
+		)
+
+	case compareResultMsg:
+		if msg.err != nil {
+			m.compareErr = msg.err.Error()
+		} else {
+			m.word1 = msg.w1
+			m.word2 = msg.w2
+			m.compareVp.SetContent(buildCompareContent(msg.w1, msg.w2, m.compareVp.Width))
+		}
+
+	case translateResultMsg:
+		m.transLoading = false
+		if msg.err != nil {
+			m.transErr = msg.err.Error()
+		} else {
+			m.transResult = msg.result
+		}
+
+	case relatedResultMsg:
+		m.relatedWords = msg.words
+		m.refreshViewport()
+
+	case phrasesResultMsg:
+		m.phrases = msg.phrases
+		m.refreshViewport()
+
+	case idiomsResultMsg:
+		m.idioms = msg.idioms
+		m.refreshViewport()
+
+	case usageResultMsg:
+		m.usageCasual = msg.casual
+		m.usageFormal = msg.formal
+		m.usageAcademic = msg.academic
+		m.refreshViewport()
 
 	case wordErrMsg:
 		m.loading = false
@@ -376,6 +694,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case clearCopyNotificationMsg:
 		m.copied = false
+
+	case clearExportNotificationMsg:
+		m.exported = ""
 
 	case spinner.TickMsg:
 		if m.loading {
@@ -417,6 +738,74 @@ func (m Model) lookupCmd(word string) tea.Cmd {
 	}
 }
 
+func (m Model) fetchRelatedCmd(word string) tea.Cmd {
+	return func() tea.Msg {
+		words, err := api.FetchRelated(word)
+		if err != nil {
+			return relatedResultMsg{words: nil}
+		}
+		return relatedResultMsg{words: words}
+	}
+}
+
+func (m Model) fetchPhrasesCmd(word string) tea.Cmd {
+	return func() tea.Msg {
+		phrases, err := api.FetchPhrases(word)
+		if err != nil {
+			return phrasesResultMsg{phrases: nil}
+		}
+		return phrasesResultMsg{phrases: phrases}
+	}
+}
+
+func (m Model) fetchIdiomsCmd(word string) tea.Cmd {
+	return func() tea.Msg {
+		idioms, err := api.FetchIdioms(word)
+		if err != nil {
+			return idiomsResultMsg{idioms: nil}
+		}
+		return idiomsResultMsg{idioms: idioms}
+	}
+}
+
+func (m Model) fetchUsageCmd(w *models.Word) tea.Cmd {
+	return func() tea.Msg {
+		casual, formal, academic := api.GenerateUsageGuide(w)
+		return usageResultMsg{casual: casual, formal: formal, academic: academic}
+	}
+}
+
+func (m Model) translateTuiCmd(text, lang string) tea.Cmd {
+	return func() tea.Msg {
+		res, err := api.Translate(text, lang)
+		return translateResultMsg{result: res, err: err}
+	}
+}
+
+func (m Model) compareTuiCmd(w1Name, w2Name string) tea.Cmd {
+	return func() tea.Msg {
+		w1, err := m.db.GetWord(w1Name)
+		if err != nil || w1 == nil {
+			w1, err = api.Lookup(w1Name)
+			if err != nil {
+				return compareResultMsg{err: fmt.Errorf("could not lookup %q", w1Name)}
+			}
+			_ = m.db.SaveWord(w1)
+		}
+
+		w2, err := m.db.GetWord(w2Name)
+		if err != nil || w2 == nil {
+			w2, err = api.Lookup(w2Name)
+			if err != nil {
+				return compareResultMsg{err: fmt.Errorf("could not lookup %q", w2Name)}
+			}
+			_ = m.db.SaveWord(w2)
+		}
+
+		return compareResultMsg{w1: w1, w2: w2}
+	}
+}
+
 func (m Model) toggleFavCmd(word string) tea.Cmd {
 	return func() tea.Msg {
 		if m.isFav {
@@ -431,6 +820,12 @@ func (m Model) toggleFavCmd(word string) tea.Cmd {
 func (m Model) resetCopyNotificationCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
 		return clearCopyNotificationMsg{}
+	})
+}
+
+func (m Model) resetExportNotificationCmd() tea.Cmd {
+	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+		return clearExportNotificationMsg{}
 	})
 }
 
@@ -537,6 +932,12 @@ func (m Model) View() string {
 	switch m.activeTab {
 	case tabSearch:
 		contentStr = m.viewSearchTab()
+	case tabCompare:
+		contentStr = m.viewCompareTab()
+	case tabTranslate:
+		contentStr = m.viewTranslateTab()
+	case tabDomain:
+		contentStr = m.viewDomainTab()
 	case tabFavorites:
 		contentStr = m.viewFavoritesTab()
 	case tabRecent:
@@ -610,6 +1011,9 @@ func (m Model) viewSidebar() string {
 		label string
 	}{
 		{tabSearch, "🔍 Lookup"},
+		{tabCompare, "⚖️ Compare"},
+		{tabTranslate, "🌐 Translate"},
+		{tabDomain, "🏛️ Domains"},
 		{tabFavorites, "★ Starred"},
 		{tabRecent, "🕒 History"},
 		{tabLearn, "📚 Daily Learn"},
@@ -783,6 +1187,16 @@ func (m Model) viewStatsTab() string {
 	var sb strings.Builder
 	sb.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("📊 Mean Vocabulary OS Analytics") + "\n\n")
 
+	if m.exported != "" {
+		badge := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#111827")).
+			Background(colorSuccess).
+			Padding(0, 2).
+			Bold(true).
+			Render(m.exported)
+		sb.WriteString("  " + badge + "\n\n")
+	}
+
 	renderStatRow := func(label string, value interface{}) {
 		sb.WriteString(fmt.Sprintf("  %-18s :  %v\n", label, value))
 	}
@@ -793,6 +1207,7 @@ func (m Model) viewStatsTab() string {
 	renderStatRow("Current Streak", fmt.Sprintf("🔥 %d days", currStreak))
 	renderStatRow("Max Active Streak", fmt.Sprintf("🏆 %d days", maxStreak))
 	renderStatRow("Top Category Focus", topCat)
+	renderStatRow("Data Directory", cache.DataDir())
 
 	sb.WriteString("\n  Keep checking in daily to maintain your streak!")
 	return sb.String()
@@ -821,6 +1236,7 @@ func (m Model) viewStatusBar() string {
 				focusHelp,
 				keyBind("s", "star"),
 				keyBind("c", "copy"),
+				keyBind("e", "export"),
 				keyBind("p", "pronounce"),
 				keyBind("Esc/←", "back to menu"),
 			}
@@ -835,6 +1251,7 @@ func (m Model) viewStatusBar() string {
 			keys = []string{
 				keyBind("↑↓/jk", "select word"),
 				keyBind("Enter", "view definition"),
+				keyBind("c", "clear history"),
 				keyBind("Esc/←", "back to menu"),
 			}
 		case tabLearn:
@@ -892,6 +1309,7 @@ func (m Model) viewStatusBar() string {
 			}
 		case tabStats:
 			keys = []string{
+				keyBind("c", "clear word cache"),
 				keyBind("Esc/←", "back to menu"),
 			}
 		}
@@ -933,6 +1351,15 @@ func (m Model) viewWordHeader() string {
 			Render("copied!")
 		header += "  " + copiedBadge
 	}
+	if m.exported != "" {
+		exportedBadge := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#111827")).
+			Background(colorAccent).
+			Padding(0, 1).
+			Bold(true).
+			Render(m.exported)
+		header += "  " + exportedBadge
+	}
 	return "  " + header + "\n"
 }
 
@@ -948,16 +1375,49 @@ func (m *Model) resizeViewport() {
 	m.viewport.Width = innerPanelW
 	m.viewport.Height = contentH
 	m.refreshViewport()
+
+	m.compareVp.Width = innerPanelW
+	m.compareVp.Height = contentH
+	if m.word1 != nil && m.word2 != nil {
+		m.compareVp.SetContent(buildCompareContent(m.word1, m.word2, m.compareVp.Width))
+	}
 }
 
 func (m *Model) refreshViewport() {
 	if m.word == nil {
 		return
 	}
-	m.viewport.SetContent(buildWordContent(m.word, m.viewport.Width))
+	m.viewport.SetContent(buildWordContent(m.word, *m, m.viewport.Width))
 }
 
-func buildWordContent(w *models.Word, width int) string {
+func buildCompareContent(w1, w2 *models.Word, width int) string {
+	var sb strings.Builder
+
+	renderWordCompact := func(w *models.Word) {
+		sb.WriteString(fmt.Sprintf("  %s (%s)\n", lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(strings.ToUpper(w.Word)), w.Pronunciation))
+		if len(w.Definitions) > 0 {
+			sb.WriteString(fmt.Sprintf("    * Definition: %s\n", w.Definitions[0].Meaning))
+			if w.Definitions[0].Example != "" {
+				sb.WriteString(fmt.Sprintf("      Example: \"%s\"\n", w.Definitions[0].Example))
+			}
+		}
+		if len(w.Synonyms) > 0 {
+			limit := len(w.Synonyms)
+			if limit > 3 {
+				limit = 3
+			}
+			sb.WriteString(fmt.Sprintf("    * Synonyms: %s\n", strings.Join(w.Synonyms[:limit], ", ")))
+		}
+	}
+
+	renderWordCompact(w1)
+	sb.WriteString("\n" + lipgloss.NewStyle().Foreground(colorBorder).Render("  "+strings.Repeat("╌", width-4)) + "\n\n")
+	renderWordCompact(w2)
+
+	return sb.String()
+}
+
+func buildWordContent(w *models.Word, m Model, width int) string {
 	var sb strings.Builder
 
 	// Definitions
@@ -976,6 +1436,43 @@ func buildWordContent(w *models.Word, width int) string {
 		}
 	}
 
+	// Synonym Intensity Ladder
+	if len(w.Synonyms) > 0 {
+		sb.WriteString("\n" + styleSectionTitle.Render(" SYNONYM INTENSITY LADDER ") + "\n")
+		sb.WriteString("    [Base] " + styleWordName.Copy().Underline(false).Foreground(colorSuccess).Render(w.Word) + "\n")
+		indent := "    "
+		colors := []lipgloss.Color{
+			lipgloss.Color("#A78BFA"), // Light violet
+			lipgloss.Color("#8B5CF6"), // Violet
+			lipgloss.Color("#7C3AED"), // Darker violet
+			lipgloss.Color("#EC4899"), // Pink
+			lipgloss.Color("#EF4444"), // Red (extreme intensity)
+		}
+		var filtered []string
+		seen := map[string]bool{strings.ToLower(w.Word): true}
+		for _, s := range w.Synonyms {
+			lowerS := strings.ToLower(s)
+			if !seen[lowerS] {
+				filtered = append(filtered, s)
+				seen[lowerS] = true
+			}
+		}
+		for i, s := range filtered {
+			if i >= 6 {
+				break
+			}
+			var colorIdx int
+			if i >= len(colors) {
+				colorIdx = len(colors) - 1
+			} else {
+				colorIdx = i
+			}
+			indent += "  "
+			style := lipgloss.NewStyle().Foreground(colors[colorIdx]).Bold(true)
+			sb.WriteString(indent + "🪜 " + style.Render(s) + "\n")
+		}
+	}
+
 	// Synonyms
 	if len(w.Synonyms) > 0 {
 		sb.WriteString("\n" + styleSectionTitle.Render(" SYNONYMS ") + "\n  ")
@@ -988,12 +1485,44 @@ func buildWordContent(w *models.Word, width int) string {
 		sb.WriteString(buildListString(w.Antonyms, styleAntonym, width-4) + "\n")
 	}
 
+	// Related Words
+	if len(m.relatedWords) > 0 {
+		sb.WriteString("\n" + styleSectionTitle.Render(" RELATED WORDS ") + "\n  ")
+		sb.WriteString(buildListString(m.relatedWords, styleSynonym.Copy().Background(colorPrimary), width-4) + "\n")
+	}
+
+	// Contextual Usage Guide
+	if m.usageCasual != "" || m.usageFormal != "" || m.usageAcademic != "" {
+		sb.WriteString("\n" + styleSectionTitle.Render(" CONTEXTUAL USAGE GUIDE ") + "\n")
+		if m.usageCasual != "" {
+			sb.WriteString("    " + lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render("[Casual]") + " " + m.usageCasual + "\n")
+		}
+		if m.usageFormal != "" {
+			sb.WriteString("    " + lipgloss.NewStyle().Foreground(colorWarning).Bold(true).Render("[Formal]") + " " + m.usageFormal + "\n")
+		}
+		if m.usageAcademic != "" {
+			sb.WriteString("    " + lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("[Academic]") + " " + m.usageAcademic + "\n")
+		}
+	}
+
 	// Examples
 	if len(w.Examples) > 0 {
 		sb.WriteString("\n" + styleSectionTitle.Render(" EXAMPLES ") + "\n")
 		for i, ex := range w.Examples {
 			sb.WriteString(fmt.Sprintf("    %d. %s\n", i+1, styleExample.Render("\""+ex+"\"")))
 		}
+	}
+
+	// Common Phrases
+	if len(m.phrases) > 0 {
+		sb.WriteString("\n" + styleSectionTitle.Render(" COMMON PHRASES ") + "\n  ")
+		sb.WriteString(buildListString(m.phrases, styleMuted.Copy().Foreground(colorText), width-4) + "\n")
+	}
+
+	// Idioms
+	if len(m.idioms) > 0 {
+		sb.WriteString("\n" + styleSectionTitle.Render(" IDIOMS & EXPRESSIONS ") + "\n  ")
+		sb.WriteString(buildListString(m.idioms, styleMuted.Copy().Foreground(colorWarning), width-4) + "\n")
 	}
 
 	// Etymology
@@ -1069,6 +1598,117 @@ func buildPlainCopyText(w *models.Word) string {
 	}
 	if w.Etymology != "" {
 		sb.WriteString("ETYMOLOGY:\n  " + w.Etymology + "\n\n")
+	}
+	return sb.String()
+}
+
+func (m Model) viewCompareTab() string {
+	var sb strings.Builder
+	sb.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("⚖️ Word Comparison Tools") + "\n\n")
+
+	boxW := m.width - 40
+	if boxW < 10 {
+		boxW = 10
+	}
+	m.compareInput1.Width = boxW - 2
+	m.compareInput2.Width = boxW - 2
+
+	c1Style := styleSearchBox.Width(boxW)
+	c2Style := styleSearchBox.Width(boxW)
+	if m.compareActive == 0 && !m.focusMenu {
+		c1Style = c1Style.BorderForeground(colorPrimary)
+	} else {
+		c1Style = c1Style.BorderForeground(colorBorder)
+	}
+	if m.compareActive == 1 && !m.focusMenu {
+		c2Style = c2Style.BorderForeground(colorPrimary)
+	} else {
+		c2Style = c2Style.BorderForeground(colorBorder)
+	}
+
+	sb.WriteString("  " + c1Style.Render(m.compareInput1.View()) + "   " + c2Style.Render(m.compareInput2.View()) + "\n\n")
+
+	if m.compareErr != "" {
+		sb.WriteString(styleError.Render("  ✗ "+m.compareErr) + "\n")
+	} else if m.word1 != nil && m.word2 != nil {
+		m.compareVp.Height = m.height - 15
+		if m.compareVp.Height < 3 {
+			m.compareVp.Height = 3
+		}
+		sb.WriteString(m.compareVp.View())
+	} else {
+		sb.WriteString(styleMuted.Render("  Enter two words above to compare them side-by-side.") + "\n")
+	}
+	return sb.String()
+}
+
+func (m Model) viewTranslateTab() string {
+	var sb strings.Builder
+	sb.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("🌐 Vocabulary Translation Center") + "\n\n")
+
+	boxW := m.width - 40
+	if boxW < 10 {
+		boxW = 10
+	}
+	m.transInput1.Width = boxW - 2
+	m.transInput2.Width = boxW - 2
+
+	t1Style := styleSearchBox.Width(boxW)
+	t2Style := styleSearchBox.Width(boxW)
+	if m.transActive == 0 && !m.focusMenu {
+		t1Style = t1Style.BorderForeground(colorPrimary)
+	} else {
+		t1Style = t1Style.BorderForeground(colorBorder)
+	}
+	if m.transActive == 1 && !m.focusMenu {
+		t2Style = t2Style.BorderForeground(colorPrimary)
+	} else {
+		t2Style = t2Style.BorderForeground(colorBorder)
+	}
+
+	sb.WriteString("  " + t1Style.Render(m.transInput1.View()) + "   " + t2Style.Render(m.transInput2.View()) + "\n\n")
+
+	if m.transLoading {
+		sb.WriteString("  " + m.spinner.View() + " Translating…\n")
+	} else if m.transErr != "" {
+		sb.WriteString(styleError.Render("  ✗ "+m.transErr) + "\n")
+	} else if m.transResult != "" {
+		titleStyle := lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+		sb.WriteString(titleStyle.Render("  Result:") + "\n")
+		sb.WriteString("    English   :  " + lipgloss.NewStyle().Bold(true).Render(m.transInput1.Value()) + "\n")
+		sb.WriteString("    Translation:  " + lipgloss.NewStyle().Foreground(colorPrimary).Bold(true).Render(m.transResult) + "\n")
+	} else {
+		sb.WriteString(styleMuted.Render("  Enter text and target language/code (e.g. es, fr, Hindi) to translate.") + "\n")
+	}
+	return sb.String()
+}
+
+func (m Model) viewDomainTab() string {
+	domains := []string{"cybersecurity", "finance", "medical", "legal", "business"}
+	var sb strings.Builder
+	sb.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("🏛️ Curriculum Domain Focus Lists") + "\n\n")
+
+	if m.domainActive {
+		domainName := domains[m.domainCursor]
+		list := domainVocabs[domainName]
+		sb.WriteString(styleMuted.Render(fmt.Sprintf("  Browse curated terms for: %s", strings.ToUpper(domainName))) + "\n\n")
+		for i, term := range list {
+			if i == m.wordCursor && !m.focusMenu {
+				sb.WriteString(fmt.Sprintf("   ▶ %s\n", lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(term)))
+			} else {
+				sb.WriteString(fmt.Sprintf("     %s\n", term))
+			}
+		}
+		sb.WriteString("\n  " + styleMuted.Render("[ Press Enter to view definition, Esc to go back ]"))
+	} else {
+		sb.WriteString(styleMuted.Render("  Select a professional field to explore specialized terms:") + "\n\n")
+		for i, d := range domains {
+			if i == m.domainCursor && !m.focusMenu {
+				sb.WriteString(fmt.Sprintf("   ▶ %s\n", lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(strings.ToUpper(d))))
+			} else {
+				sb.WriteString(fmt.Sprintf("     %s\n", strings.Title(d)))
+			}
+		}
 	}
 	return sb.String()
 }

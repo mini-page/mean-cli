@@ -140,7 +140,7 @@ func (m *FlashcardModel) refreshViewport() {
 	}
 	w := m.deck[m.cursor]
 	if m.flipped {
-		m.viewport.SetContent(buildWordContent(&w, m.viewport.Width))
+		m.viewport.SetContent(buildWordContent(&w, Model{}, m.viewport.Width))
 	}
 }
 
