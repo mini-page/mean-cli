@@ -27,6 +27,55 @@ func main() {
 	defer db.Close()
 
 	root := buildRoot(db)
+
+	// Intercept command typos / word queries
+	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
+		// Populate all command names and aliases
+		commands := map[string]bool{}
+		for _, c := range root.Commands() {
+			commands[c.Name()] = true
+			for _, a := range c.Aliases {
+				commands[a] = true
+			}
+		}
+
+		arg1 := strings.ToLower(strings.TrimSpace(os.Args[1]))
+		if !commands[arg1] {
+			// Find closest command using Levenshtein distance
+			bestMatch := ""
+			minDist := 999
+			for cmdName := range commands {
+				dist := api.Levenshtein(arg1, cmdName)
+				if dist < minDist {
+					minDist = dist
+					bestMatch = cmdName
+				}
+			}
+
+			// Typos correction heuristic: distance <= 2 and must be less than half the command length
+			if minDist <= 2 && minDist < len(bestMatch)/2 {
+				fmt.Fprintf(os.Stderr, "  💡 Assuming command %q (corrected from %q)\n\n", bestMatch, os.Args[1])
+				os.Args[1] = bestMatch
+			} else {
+				// It's a word query! Extract word parts and flags separately
+				var wordParts []string
+				var flags []string
+				for _, arg := range os.Args[1:] {
+					if strings.HasPrefix(arg, "-") {
+						flags = append(flags, arg)
+					} else {
+						wordParts = append(wordParts, arg)
+					}
+				}
+				word := strings.Join(wordParts, " ")
+
+				newArgs := []string{os.Args[0], "--lookup", word}
+				newArgs = append(newArgs, flags...)
+				os.Args = newArgs
+			}
+		}
+	}
+
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -59,39 +108,56 @@ func buildRoot(db *cache.DB) *cobra.Command {
 			daily, _ := cmd.Flags().GetBool("daily")
 			random, _ := cmd.Flags().GetBool("random")
 			formatJson, _ := cmd.Flags().GetBool("json")
-
-			var inputWord string
-			if isInputPiped() {
-				var sb strings.Builder
-				scanner := bufio.NewScanner(os.Stdin)
-				for scanner.Scan() {
-					sb.WriteString(scanner.Text())
-				}
-				inputWord = strings.TrimSpace(sb.String())
-			}
+			lookupWord, _ := cmd.Flags().GetString("lookup")
 
 			switch {
-			case daily:
-				return runDaily(db)
-			case random:
-				return runRandom(db)
-			case inputWord != "":
+			case lookupWord != "":
 				if formatJson {
-					w, err := db.GetWord(inputWord)
+					w, err := db.GetWord(lookupWord)
 					if err != nil || w == nil {
-						w, err = api.Lookup(inputWord)
+						w, err = api.Lookup(lookupWord)
 						if err != nil {
 							cli.PrintJSON(map[string]string{"error": err.Error()})
 							return nil
 						}
 						_ = db.SaveWord(w)
 					}
-					_ = db.AddHistory(inputWord)
+					_ = db.AddHistory(lookupWord)
 					cli.PrintJSON(w)
 					return nil
 				}
-				cli.LookupAndPrint(db, inputWord)
+				cli.LookupAndPrint(db, lookupWord)
 				return nil
+			case daily:
+				return runDaily(db)
+			case random:
+				return runRandom(db)
+			case isInputPiped():
+				var sb strings.Builder
+				scanner := bufio.NewScanner(os.Stdin)
+				for scanner.Scan() {
+					sb.WriteString(scanner.Text())
+				}
+				inputWord := strings.TrimSpace(sb.String())
+				if inputWord != "" {
+					if formatJson {
+						w, err := db.GetWord(inputWord)
+						if err != nil || w == nil {
+							w, err = api.Lookup(inputWord)
+							if err != nil {
+								cli.PrintJSON(map[string]string{"error": err.Error()})
+								return nil
+							}
+							_ = db.SaveWord(w)
+						}
+						_ = db.AddHistory(inputWord)
+						cli.PrintJSON(w)
+						return nil
+					}
+					cli.LookupAndPrint(db, inputWord)
+					return nil
+				}
+				return runTUI(db)
 			case len(args) > 0:
 				word := strings.Join(args, " ")
 				if formatJson {
@@ -118,6 +184,7 @@ func buildRoot(db *cache.DB) *cobra.Command {
 
 	root.Flags().Bool("daily", false, "Show word of the day")
 	root.Flags().Bool("random", false, "Look up a random word")
+	root.Flags().String("lookup", "", "Perform a quick word lookup (used internally for routing)")
 	root.PersistentFlags().Bool("json", false, "Output results in JSON format")
 
 	// Subcommands

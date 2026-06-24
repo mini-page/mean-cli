@@ -99,6 +99,15 @@ func LookupAndPrint(db *cache.DB, word string) {
 	if err != nil {
 		printStyled(lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Bold(true),
 			"\n  ✗ "+err.Error())
+
+		sugs, _ := api.FetchSuggestions(word)
+		if len(sugs) > 0 {
+			fmt.Println()
+			printStyled(lipgloss.NewStyle().Foreground(lipgloss.Color("#FBBF24")).Bold(true), "  💡 Did you mean:")
+			for _, s := range sugs {
+				fmt.Printf("    • %s\n", s)
+			}
+		}
 		fmt.Println()
 		os.Exit(1)
 	}
