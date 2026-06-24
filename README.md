@@ -21,13 +21,35 @@ A fast, beautiful, offline-first dictionary, Leitner spaced repetition review sy
 
 ## 🚀 Installation
 
-### Using Go
+### A. One-Line Script Installer (Recommended)
+You can install `mean-cli` instantly without needing Go or compiling from source.
+
+#### macOS & Linux (Bash/Zsh)
+```bash
+curl -sSfL https://raw.githubusercontent.com/mini-page/mean-cli/main/install.sh | sh
+```
+
+#### Windows (PowerShell)
+Open PowerShell and run:
+```powershell
+irm https://raw.githubusercontent.com/mini-page/mean-cli/main/install.ps1 | iex
+```
+
+### B. Precompiled Binaries
+Download the precompiled binary directly for your OS from the [Latest Release Page](https://github.com/mini-page/mean-cli/releases/latest):
+* **Windows (x64)**: `mean-windows-amd64.exe`
+* **macOS (Apple Silicon)**: `mean-darwin-arm64`
+* **macOS (Intel)**: `mean-darwin-amd64`
+* **Linux (x64)**: `mean-linux-amd64`
+
+*(On Linux and macOS, rename the downloaded asset to `mean`, make it executable with `chmod +x mean`, and move it to a directory in your `$PATH`.)*
+
+### C. Compile from Source (Requires Go)
 If you have Go installed on your system:
 ```bash
 go install github.com/mini-page/mean-cli/cmd/mean@latest
 ```
-
-### Manual Compilation
+or manually compile:
 ```bash
 git clone https://github.com/mini-page/mean-cli.git
 cd mean-cli
