@@ -92,6 +92,7 @@ func New(db *cache.DB, deck []models.Word) Model {
 	vp := viewport.New(0, 0)
 
 	gc := NewGameCenterModel(db, deck)
+	gc.Embedded = true
 
 	return Model{
 		db:         db,
@@ -119,9 +120,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = sz.Width
 		m.height = sz.Height
 		m.resizeViewport()
-		// Also update gameCenter size
-		m.gameCenter.width = sz.Width
-		m.gameCenter.height = sz.Height
+		// Also update gameCenter size based on inner content area
+		contentWidth := sz.Width - 32
+		if contentWidth < 15 {
+			contentWidth = 15
+		}
+		panelHeight := sz.Height - 7
+		if panelHeight < 5 {
+			panelHeight = 5
+		}
+		m.gameCenter.width = contentWidth - 4
+		m.gameCenter.height = panelHeight - 2
 	}
 
 	// ─── If Game TUI is active, delegate entirely ───
@@ -840,10 +849,46 @@ func (m Model) viewStatusBar() string {
 				keyBind("Esc/←", "back to menu"),
 			}
 		case tabGames:
-			keys = []string{
-				keyBind("↑↓/jk", "select game"),
-				keyBind("Enter", "play game"),
-				keyBind("Esc/q", "back to menu"),
+			switch m.gameCenter.state {
+			case stateMenu:
+				keys = []string{
+					keyBind("↑↓/jk", "move cursor"),
+					keyBind("Enter", "select game"),
+					keyBind("Esc/q", "back to menu"),
+				}
+			case stateHangman:
+				keys = []string{
+					keyBind("[a-z]", "guess letter"),
+					keyBind("Esc/q", "quit game"),
+				}
+				if m.gameCenter.hangman != nil && m.gameCenter.hangman.session != nil && (m.gameCenter.hangman.session.IsWon() || m.gameCenter.hangman.session.IsLost()) {
+					keys = append(keys, keyBind("p", "pronounce"), keyBind("Enter", "next word"))
+				}
+			case stateMatcher:
+				keys = []string{
+					keyBind("A/B/C/D", "make choice"),
+					keyBind("Esc/q", "quit game"),
+				}
+				if m.gameCenter.matcher != nil && m.gameCenter.matcher.state == stateAnswered {
+					keys = append(keys, keyBind("p", "pronounce word"), keyBind("Enter", "next definition"))
+				}
+			case stateQuiz:
+				keys = []string{
+					keyBind("Enter", "submit / next"),
+					keyBind("Esc", "quit quiz"),
+				}
+				if m.gameCenter.quiz != nil && m.gameCenter.quiz.state == stateAnswered {
+					keys = append(keys, keyBind("p", "pronounce word"), keyBind("q", "quit"))
+				}
+			case stateFlashcards:
+				keys = []string{
+					keyBind("Space/Enter", "flip"),
+					keyBind("→/n", "next"),
+					keyBind("←/h", "prev"),
+					keyBind("s", "star"),
+					keyBind("p", "pronounce"),
+					keyBind("Esc/q", "exit study"),
+				}
 			}
 		case tabStats:
 			keys = []string{

@@ -111,8 +111,7 @@ var (
 	styleSearchBox = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorPrimary).
-			Padding(0, 1).
-			MarginLeft(2)
+			Padding(0, 1)
 
 	// ─── Cached badge ─────────────────────────────────────────────────────────
 	styleCacheBadge = lipgloss.NewStyle().

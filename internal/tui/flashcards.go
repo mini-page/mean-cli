@@ -25,6 +25,8 @@ type FlashcardModel struct {
 
 	width  int
 	height int
+
+	Embedded bool
 }
 
 // NewFlashcardModel creates a new flashcard session.
@@ -119,8 +121,13 @@ func (m *FlashcardModel) updateFavState() {
 
 func (m *FlashcardModel) resizeViewport() {
 	// Padding/margin boundaries
-	m.viewport.Width = m.width - 12
-	m.viewport.Height = m.height - 13
+	if m.Embedded {
+		m.viewport.Width = m.width - 4
+		m.viewport.Height = m.height - 6
+	} else {
+		m.viewport.Width = m.width - 12
+		m.viewport.Height = m.height - 13
+	}
 	if m.viewport.Height < 3 {
 		m.viewport.Height = 3
 	}
@@ -145,20 +152,30 @@ func (m FlashcardModel) View() string {
 	var b strings.Builder
 
 	// Header
-	b.WriteString(styleHeader.Render(styleTitle.Render("🎴  mean") + styleSubtext.Render("  —  Flashcard Active Recall study")) + "\n\n")
+	if !m.Embedded {
+		b.WriteString(styleHeader.Render(styleTitle.Render("🎴  mean") + styleSubtext.Render("  —  Flashcard Active Recall study")) + "\n\n")
+	}
 
 	if len(m.deck) == 0 {
-		b.WriteString(stylePanel.Width(m.width - 8).Render(
-			"\n  No words in your study deck!\n  Search for words and star them, or query definitions to populate history.\n",
-		) + "\n")
-		b.WriteString("\n  " + keyBind("q", "quit") + "\n")
+		msg := "\n  No words in your study deck!\n  Search for words and star them, or query definitions to populate history.\n"
+		if m.Embedded {
+			b.WriteString(msg)
+		} else {
+			b.WriteString(stylePanel.Width(m.width - 8).Render(msg) + "\n")
+			b.WriteString("\n  " + keyBind("q", "quit") + "\n")
+		}
 		return b.String()
 	}
 
 	w := m.deck[m.cursor]
-	cardW := m.width - 8
-	if cardW < 20 {
-		cardW = 20
+	var cardW int
+	if m.Embedded {
+		cardW = m.width
+	} else {
+		cardW = m.width - 8
+		if cardW < 20 {
+			cardW = 20
+		}
 	}
 
 	// Card visual body
@@ -200,23 +217,28 @@ func (m FlashcardModel) View() string {
 		cardContent = cardBody.String()
 	}
 
-	// Render card inside rounded border
-	b.WriteString(stylePanel.Width(cardW).Render(cardContent) + "\n\n")
+	if m.Embedded {
+		deckProgress := fmt.Sprintf("Card %d of %d", m.cursor+1, len(m.deck))
+		b.WriteString(cardContent + "\n\n" + styleExamBadge.Render(deckProgress) + "\n")
+	} else {
+		// Render card inside rounded border
+		b.WriteString(stylePanel.Width(cardW).Render(cardContent) + "\n\n")
 
-	// Stats and footer controls
-	deckProgress := fmt.Sprintf("Card %d of %d", m.cursor+1, len(m.deck))
-	b.WriteString("  " + styleExamBadge.Render(deckProgress) + "\n\n")
+		// Stats and footer controls
+		deckProgress := fmt.Sprintf("Card %d of %d", m.cursor+1, len(m.deck))
+		b.WriteString("  " + styleExamBadge.Render(deckProgress) + "\n\n")
 
-	// Status navigation helpers
-	keys := []string{
-		keyBind("Space/Enter", "flip"),
-		keyBind("→ / n", "next"),
-		keyBind("← / h", "prev"),
-		keyBind("s", "star"),
-		keyBind("p", "pronounce"),
-		keyBind("q", "exit study"),
+		// Status navigation helpers
+		keys := []string{
+			keyBind("Space/Enter", "flip"),
+			keyBind("→ / n", "next"),
+			keyBind("← / h", "prev"),
+			keyBind("s", "star"),
+			keyBind("p", "pronounce"),
+			keyBind("q", "exit study"),
+		}
+		b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 	}
-	b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 
 	return b.String()
 }

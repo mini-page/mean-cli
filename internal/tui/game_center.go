@@ -32,6 +32,8 @@ type GameCenterModel struct {
 
 	width  int
 	height int
+
+	Embedded bool
 }
 
 func NewGameCenterModel(db *cache.DB, deck []models.Word) *GameCenterModel {
@@ -50,23 +52,36 @@ func (m GameCenterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Keep track of window size across states
 	if sz, ok := msg.(tea.WindowSizeMsg); ok {
-		m.width = sz.Width
-		m.height = sz.Height
+		if m.Embedded {
+			contentWidth := sz.Width - 32
+			if contentWidth < 15 {
+				contentWidth = 15
+			}
+			panelHeight := sz.Height - 7
+			if panelHeight < 5 {
+				panelHeight = 5
+			}
+			m.width = contentWidth - 4
+			m.height = panelHeight - 2
+		} else {
+			m.width = sz.Width
+			m.height = sz.Height
+		}
 		if m.hangman != nil {
-			m.hangman.width = sz.Width
-			m.hangman.height = sz.Height
+			m.hangman.width = m.width
+			m.hangman.height = m.height
 		}
 		if m.matcher != nil {
-			m.matcher.width = sz.Width
-			m.matcher.height = sz.Height
+			m.matcher.width = m.width
+			m.matcher.height = m.height
 		}
 		if m.quiz != nil {
-			m.quiz.width = sz.Width
-			m.quiz.height = sz.Height
+			m.quiz.width = m.width
+			m.quiz.height = m.height
 		}
 		if m.flashcard != nil {
-			m.flashcard.width = sz.Width
-			m.flashcard.height = sz.Height
+			m.flashcard.width = m.width
+			m.flashcard.height = m.height
 			m.flashcard.resizeViewport()
 		}
 	}
@@ -95,21 +110,25 @@ func (m GameCenterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.hangman = NewHangmanModel(m.db, m.deck)
 					m.hangman.width = m.width
 					m.hangman.height = m.height
+					m.hangman.Embedded = m.Embedded
 					m.state = stateHangman
 				case 1:
 					m.matcher = NewTuiMatchModel(m.db, m.deck)
 					m.matcher.width = m.width
 					m.matcher.height = m.height
+					m.matcher.Embedded = m.Embedded
 					m.state = stateMatcher
 				case 2:
 					m.quiz = NewQuizModel(m.db, m.deck)
 					m.quiz.width = m.width
 					m.quiz.height = m.height
+					m.quiz.Embedded = m.Embedded
 					m.state = stateQuiz
 				case 3:
 					m.flashcard = NewFlashcardModel(m.db, m.deck)
 					m.flashcard.width = m.width
 					m.flashcard.height = m.height
+					m.flashcard.Embedded = m.Embedded
 					m.flashcard.resizeViewport()
 					m.state = stateFlashcards
 				}
@@ -191,12 +210,19 @@ func (m GameCenterModel) View() string {
 
 	var b strings.Builder
 
-	// Header
-	b.WriteString(styleHeader.Render(styleTitle.Render("🎮  mean") + styleSubtext.Render("  —  Study & Game Center Menu")) + "\n\n")
+	// Header (only standalone)
+	if !m.Embedded {
+		b.WriteString(styleHeader.Render(styleTitle.Render("🎮  mean") + styleSubtext.Render("  —  Study & Game Center Menu")) + "\n\n")
+	}
 
-	cardW := m.width - 8
-	if cardW < 20 {
-		cardW = 20
+	var cardW int
+	if m.Embedded {
+		cardW = m.width
+	} else {
+		cardW = m.width - 8
+		if cardW < 20 {
+			cardW = 20
+		}
 	}
 
 	// Dashboard Panel
@@ -229,15 +255,19 @@ func (m GameCenterModel) View() string {
 		panelBody.WriteString(line + "\n")
 	}
 
-	b.WriteString(stylePanel.Width(cardW).Render(panelBody.String()) + "\n\n")
+	if m.Embedded {
+		b.WriteString(panelBody.String())
+	} else {
+		b.WriteString(stylePanel.Width(cardW).Render(panelBody.String()) + "\n\n")
 
-	// Status helpers
-	keys := []string{
-		keyBind("↑↓ / jk", "move cursor"),
-		keyBind("Enter", "select game"),
-		keyBind("q / Esc", "quit menu"),
+		// Status helpers
+		keys := []string{
+			keyBind("↑↓ / jk", "move cursor"),
+			keyBind("Enter", "select game"),
+			keyBind("q / Esc", "quit menu"),
+		}
+		b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 	}
-	b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 
 	return b.String()
 }

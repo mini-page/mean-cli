@@ -35,6 +35,8 @@ type HangmanModel struct {
 
 	width  int
 	height int
+
+	Embedded bool
 }
 
 func NewHangmanModel(db *cache.DB, deck []models.Word) *HangmanModel {
@@ -116,19 +118,29 @@ func (m HangmanModel) View() string {
 	var b strings.Builder
 
 	// Header
-	b.WriteString(styleHeader.Render(styleTitle.Render("🎮  mean") + styleSubtext.Render("  —  Hangman Vocabulary TUI Game")) + "\n\n")
+	if !m.Embedded {
+		b.WriteString(styleHeader.Render(styleTitle.Render("🎮  mean") + styleSubtext.Render("  —  Hangman Vocabulary TUI Game")) + "\n\n")
+	}
 
 	if len(m.deck) == 0 {
-		b.WriteString(stylePanel.Width(m.width - 8).Render(
-			"\n  No words available for Hangman!\n  Star words or view definitions to compile local history.\n",
-		) + "\n")
-		b.WriteString("\n  " + keyBind("q", "quit") + "\n")
+		msg := "\n  No words available for Hangman!\n  Star words or view definitions to compile local history.\n"
+		if m.Embedded {
+			b.WriteString(msg)
+		} else {
+			b.WriteString(stylePanel.Width(m.width - 8).Render(msg) + "\n")
+			b.WriteString("\n  " + keyBind("q", "quit") + "\n")
+		}
 		return b.String()
 	}
 
-	cardW := m.width - 8
-	if cardW < 20 {
-		cardW = 20
+	var cardW int
+	if m.Embedded {
+		cardW = m.width
+	} else {
+		cardW = m.width - 8
+		if cardW < 20 {
+			cardW = 20
+		}
 	}
 
 	var body strings.Builder
@@ -169,18 +181,25 @@ func (m HangmanModel) View() string {
 		body.WriteString("  " + styleMuted.Render("Type any letter key [a-z] on your keyboard to guess!"))
 	}
 
-	b.WriteString(stylePanel.Width(cardW).Render(body.String()) + "\n\n")
+	if m.Embedded {
+		// Streak/Score tracker inside body
+		statsStr := fmt.Sprintf("Solved: %d   Wins: %d   Streak: 🔥 %d", m.solved, m.score, m.streak)
+		body.WriteString("\n\n" + styleExamBadge.Render(statsStr) + "\n")
+		b.WriteString(body.String())
+	} else {
+		b.WriteString(stylePanel.Width(cardW).Render(body.String()) + "\n\n")
 
-	// Streak/Score tracker
-	statsStr := fmt.Sprintf("Solved: %d   Wins: %d   Streak: 🔥 %d", m.solved, m.score, m.streak)
-	b.WriteString("  " + styleExamBadge.Render(statsStr) + "\n\n")
+		// Streak/Score tracker
+		statsStr := fmt.Sprintf("Solved: %d   Wins: %d   Streak: 🔥 %d", m.solved, m.score, m.streak)
+		b.WriteString("  " + styleExamBadge.Render(statsStr) + "\n\n")
 
-	// Status helpers
-	keys := []string{
-		keyBind("[a-z]", "guess letter"),
-		keyBind("q", "quit game"),
+		// Status helpers
+		keys := []string{
+			keyBind("[a-z]", "guess letter"),
+			keyBind("q", "quit game"),
+		}
+		b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 	}
-	b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 
 	return b.String()
 }
@@ -217,6 +236,8 @@ type TuiMatchModel struct {
 
 	width  int
 	height int
+
+	Embedded bool
 }
 
 func NewTuiMatchModel(db *cache.DB, deck []models.Word) *TuiMatchModel {
@@ -309,19 +330,29 @@ func (m TuiMatchModel) View() string {
 	var b strings.Builder
 
 	// Header
-	b.WriteString(styleHeader.Render(styleTitle.Render("🎮  mean") + styleSubtext.Render("  —  Definition Matcher Game")) + "\n\n")
+	if !m.Embedded {
+		b.WriteString(styleHeader.Render(styleTitle.Render("🎮  mean") + styleSubtext.Render("  —  Definition Matcher Game")) + "\n\n")
+	}
 
 	if len(m.deck) < 2 {
-		b.WriteString(stylePanel.Width(m.width - 8).Render(
-			"\n  Matcher requires a study deck of at least 2 words!\n  Star words or view definitions to compile local history.\n",
-		) + "\n")
-		b.WriteString("\n  " + keyBind("q", "quit") + "\n")
+		msg := "\n  Matcher requires a study deck of at least 2 words!\n  Star words or view definitions to compile local history.\n"
+		if m.Embedded {
+			b.WriteString(msg)
+		} else {
+			b.WriteString(stylePanel.Width(m.width - 8).Render(msg) + "\n")
+			b.WriteString("\n  " + keyBind("q", "quit") + "\n")
+		}
 		return b.String()
 	}
 
-	cardW := m.width - 8
-	if cardW < 20 {
-		cardW = 20
+	var cardW int
+	if m.Embedded {
+		cardW = m.width
+	} else {
+		cardW = m.width - 8
+		if cardW < 20 {
+			cardW = 20
+		}
 	}
 
 	var body strings.Builder
@@ -375,22 +406,33 @@ func (m TuiMatchModel) View() string {
 		body.WriteString("  " + styleMuted.Render("Press A, B, C, or D to select your answer."))
 	}
 
-	b.WriteString(stylePanel.Width(cardW).Render(body.String()) + "\n\n")
+	if m.Embedded {
+		// Streak/Score tracker inside body
+		scorePct := 0.0
+		if m.solved > 0 {
+			scorePct = (float64(m.score) / float64(m.solved)) * 100.0
+		}
+		statsStr := fmt.Sprintf("Score: %d/%d (%.1f%%)   Streak: 🔥 %d", m.score, m.solved, scorePct, m.streak)
+		body.WriteString("\n\n" + styleExamBadge.Render(statsStr) + "\n")
+		b.WriteString(body.String())
+	} else {
+		b.WriteString(stylePanel.Width(cardW).Render(body.String()) + "\n\n")
 
-	// Streak/Score tracker
-	scorePct := 0.0
-	if m.solved > 0 {
-		scorePct = (float64(m.score) / float64(m.solved)) * 100.0
-	}
-	statsStr := fmt.Sprintf("Score: %d/%d (%.1f%%)   Streak: 🔥 %d", m.score, m.solved, scorePct, m.streak)
-	b.WriteString("  " + styleExamBadge.Render(statsStr) + "\n\n")
+		// Streak/Score tracker
+		scorePct := 0.0
+		if m.solved > 0 {
+			scorePct = (float64(m.score) / float64(m.solved)) * 100.0
+		}
+		statsStr := fmt.Sprintf("Score: %d/%d (%.1f%%)   Streak: 🔥 %d", m.score, m.solved, scorePct, m.streak)
+		b.WriteString("  " + styleExamBadge.Render(statsStr) + "\n\n")
 
-	// Status helpers
-	keys := []string{
-		keyBind("A/B/C/D", "make choice"),
-		keyBind("q", "quit game"),
+		// Status helpers
+		keys := []string{
+			keyBind("A/B/C/D", "make choice"),
+			keyBind("q", "quit game"),
+		}
+		b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 	}
-	b.WriteString("  " + styleStatusBar.Width(m.width - 4).Render(strings.Join(keys, "  ")) + "\n")
 
 	return b.String()
 }
