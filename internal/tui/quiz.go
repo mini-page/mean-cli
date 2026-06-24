@@ -62,7 +62,7 @@ func (m QuizModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {

@@ -42,7 +42,7 @@ func (m FlashcardModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {

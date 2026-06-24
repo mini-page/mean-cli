@@ -47,7 +47,7 @@ func (m GameCenterModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m GameCenterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *GameCenterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	// Keep track of window size across states

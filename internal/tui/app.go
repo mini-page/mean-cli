@@ -131,6 +131,8 @@ type Model struct {
 	// Embedded Game Center
 	gameCenter *GameCenterModel
 
+	confirmQuit bool
+
 	width  int
 	height int
 }
@@ -215,6 +217,27 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Intercept confirmQuit state or ctrl+c key press
+	if m.confirmQuit {
+		if k, ok := msg.(tea.KeyMsg); ok {
+			switch k.String() {
+			case "y", "Y", "enter":
+				return m, tea.Quit
+			case "n", "N", "esc", "q":
+				m.confirmQuit = false
+				return m, nil
+			}
+		}
+		return m, nil
+	}
+
+	if k, ok := msg.(tea.KeyMsg); ok {
+		if k.String() == "ctrl+c" {
+			m.confirmQuit = true
+			return m, nil
+		}
+	}
+
 	// Handle window size changes
 	if sz, ok := msg.(tea.WindowSizeMsg); ok {
 		m.width = sz.Width
@@ -258,8 +281,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch msg.String() {
-			case "ctrl+c", "q":
-				return m, tea.Quit
+			case "q":
+				m.confirmQuit = true
+				return m, nil
 			case "up", "k":
 				if m.menuCursor > 0 {
 					m.menuCursor--
@@ -919,6 +943,36 @@ func (m Model) View() string {
 		return "initialising…"
 	}
 
+	if m.confirmQuit {
+		boxW := m.width - 8
+		if boxW < 20 {
+			boxW = 20
+		}
+		confirmBody := "\n" +
+			lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("  ⚠️  EXIT CONFIRMATION") + "\n\n" +
+			"  Are you sure you want to exit the Vocabulary OS?\n\n" +
+			"  " + lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render("[y] Yes, exit") + "      " + lipgloss.NewStyle().Foreground(colorMuted).Bold(true).Render("[n] No, go back") + "\n"
+		
+		panelHeight := m.height - 7
+		if panelHeight < 5 {
+			panelHeight = 5
+		}
+		
+		confirmBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorDanger).
+			Width(boxW).
+			Height(panelHeight).
+			Padding(2, 4).
+			Render(confirmBody)
+			
+		var sb strings.Builder
+		sb.WriteString(m.viewHeader() + "\n")
+		sb.WriteString(confirmBox + "\n")
+		sb.WriteString(m.viewStatusBar())
+		return sb.String()
+	}
+
 	var sb strings.Builder
 
 	// Header
@@ -1216,7 +1270,12 @@ func (m Model) viewStatsTab() string {
 func (m Model) viewStatusBar() string {
 	var keys []string
 
-	if m.focusMenu {
+	if m.confirmQuit {
+		keys = []string{
+			keyBind("y", "confirm exit"),
+			keyBind("n/Esc/q", "cancel"),
+		}
+	} else if m.focusMenu {
 		keys = []string{
 			keyBind("↑↓/jk", "navigate menu"),
 			keyBind("Enter/→", "select option"),

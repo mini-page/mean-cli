@@ -60,7 +60,7 @@ func (m HangmanModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m HangmanModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *HangmanModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -262,7 +262,7 @@ func (m TuiMatchModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m TuiMatchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *TuiMatchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
