@@ -1,6 +1,6 @@
-# 📖 mean — Dictionary CLI/TUI
+# 📖 mean — Terminal Vocabulary OS & Learning System
 
-A fast, premium, cross-platform dictionary and vocabulary builder for the terminal. Built with Go, Bubble Tea, and SQLite.
+A fast, beautiful, offline-first dictionary, Leitner spaced repetition review system, and vocabulary building suite for developers in the terminal. Built with Go, Bubble Tea, and SQLite.
 
 ![Mean TUI Dashboard](assets/tui_mockup.jpg)
 
@@ -8,12 +8,14 @@ A fast, premium, cross-platform dictionary and vocabulary builder for the termin
 
 ## ✨ Features
 
-- **Quick CLI Mode**: Fast, single-word lookup perfect for script piping or quick queries.
-- **Interactive TUI Mode**: Bubble Tea powered dashboard with scrollable panels, instant typing, and keyboard navigation.
-- **Offline Cache**: First search fetches from API and caches locally in a lightweight SQLite database for instant subsequent loads.
-- **Favorites & History**: Star words to build your vocabulary list and view search history.
-- **Exporting**: Save definition sheets as formatted Markdown (`.md`) or plain text (`.txt`).
-- **Word of the Day & Random Word**: Discover new vocabulary with `--daily` and `--random`.
+- **TUI Navigation Dashboard**: Double-panel sidebar navigation linking Lookup, Starred lists, Search History, Daily Learning pipeline, Spaced Repetition reviews, Analytics, and Games.
+- **Leitner Spaced Repetition (SRM)**: Active recall session queues that automatically schedule practice based on 5 progressive confidence boxes.
+- **Word Intensity Ladders**: Synonyms ranked and displayed as stair-stepping ladders mapping semantic strength.
+- **Developer Features**: Global JSON flag `--json` and full stdin stream pipe support (e.g. `echo recursion | mean --json`).
+- **Local API Server**: Start a lightweight local definition and analytics REST API on `localhost:8080` with `mean serve`.
+- **Predefined Domain Focuses**: Domain-specific vocabularies for fields like `cybersecurity`, `finance`, `medical`, `legal`, and `business`.
+- **Offline Cache**: First search fetches from API and caches locally in a lightweight SQLite database for instant offline access.
+- **Pronunciation Audio**: TUI voice player and background audio utility for multi-platform native playback.
 
 ---
 
@@ -29,88 +31,133 @@ go install github.com/umang/mean-cli/cmd/mean@latest
 ```bash
 git clone https://github.com/umang/mean-cli.git
 cd mean-cli
-go build -o mean ./cmd/mean
+go build -o mean.exe ./cmd/mean
 ```
 
 ---
 
 ## ⌨️ Usage
 
-### Quick Lookup
+### Quick Lookup & Developer Features
 ```bash
-# Look up word meaning directly
+# Look up word definition directly
 mean serendipity
 
-# Word of the Day
-mean --daily
+# Stdin Pipe support
+echo recursion | mean
 
-# Random Word
-mean --random
+# JSON formatted output
+mean ephemeral --json
+echo paradox | mean --json
 ```
 
-### Interactive Dashboard (TUI)
+### Missing Core Commands
+```bash
+# Related: Shows semantically connected words
+mean related recursion
+
+# Compare: Shows differences, parts of speech, and definitions of two words side-by-side
+mean compare affect effect
+
+# Similar: Shows synonyms of a word
+mean similar happy
+
+# Opposite: Shows antonyms of a word
+mean opposite courage
+
+# Pronounce: Shows IPA and plays audio pronunciation
+mean pronounce ephemeral
+
+# Translate: Translates words or phrases to a target language (supports ISO codes & names)
+mean translate hello hindi
+mean tr "good morning" es
+```
+
+### Knowledge Commands
+```bash
+# Origin: Shows etymology / origin breakdown
+mean origin algorithm
+
+# Usage: Classifies casual, formal, and academic sentences
+mean usage irony
+
+# Examples: Lists sentence examples containing the word
+mean examples paradox
+
+# Phrase: Lists common compound phrases containing the word
+mean phrase break
+
+# Idiom: Lists idioms and expressions containing the word
+mean idiom cat
+```
+
+### Learning OS & Gamification
+```bash
+# Learn: Enqueues today's candidate words to your Leitner queue
+mean learn
+
+# Review: Starts interactive spaced repetition active recall session
+mean review
+
+# Streak: Outputs current and longest daily active learning streaks
+mean streak
+
+# Stats: Displays comprehensive database and learning analytics
+mean stats
+
+# Ladder: Synonym intensity staircases
+mean ladder happy
+
+# Domain: Lists specialized domain vocab lists
+mean domain cybersecurity
+```
+
+### Developer Local API Server
+Start a background local REST API on port `8080`:
+```bash
+mean serve
+```
+- Endpoint 1: `GET http://localhost:8080/api/define?word=ephemeral`
+- Endpoint 2: `GET http://localhost:8080/api/stats`
+
+---
+
+## 🖥️ Interactive Dashboard (TUI)
 Simply run the command with no arguments:
 ```bash
 mean
 ```
 
-#### TUI Keyboard Shortcuts
-- `/` or `Ctrl + K`: Focus search bar to type a word
-- `Enter`: Submit search
-- `Tab`: Alternate focus between search box and results panel
-- `s`: Toggle star / favorite
-- `c`: Copy beautifully formatted definition sheet to system clipboard
-- `p`: Play native voice pronunciation audio aloud
-- `↑ / ↓` or Mouse Wheel: Scroll content
-- `Esc`: Defocus search box / Quit TUI
-- `q`: Quit
-
-### Study & Active Recall Modes
-```bash
-# Launch interactive vocabulary quiz game
-mean quiz
-
-# Launch active recall flashcards study session
-mean flashcards (or 'mean fc')
-```
-
-#### Flashcard Shortcuts
-- `Space` / `Enter`: Flip card to reveal/hide details
-- `→` / `n` / `l`: Next card
-- `←` / `h`: Previous card
-- `s`: Toggle star status
-- `p`: Play pronunciation audio
-- `q` / `Esc`: Exit study mode
-
-#### Quiz Shortcuts
-- `Enter`: Submit guess / go to next card
-- `p`: Play pronunciation audio (only after guessing)
-- `q` / `Esc`: Exit quiz
-
-### Managing Vocabulary & Settings
-```bash
-# Toggle a word in favorites
-mean star ephemeral
-
-# List all favorites
-mean favorites
-
-# Print search history
-mean history
-
-# Export last looked up word
-mean export md
-mean export txt
-
-# Clear cache database
-mean cache clear
-```
+### TUI Keyboard Navigation
+- **Focus Menu (Left column active)**:
+  - `↑ / ↓` or `k / j`: Navigate menu options
+  - `Enter` or `→` or `l`: Focus right panel content
+- **Focus Panel (Right column active)**:
+  - `Esc` or `←` or `h`: Defocus panel and return to sidebar menu
+  - **In Search tab**:
+    - `/`: Focus search input box
+    - `Tab`: Toggle focus between search box and definition viewport (for scrolling)
+    - `s`: Star / Unstar active word
+    - `c`: Copy definition text to clipboard
+    - `p`: Play pronunciation audio
+  - **In Starred & History tabs**:
+    - `↑ / ↓` or `k / j`: Scroll list of words
+    - `Enter`: Open selected word definition
+    - `s`: Unstar selected word
+  - **In Daily Learn tab**:
+    - `L`: Enqueue 3 new daily words to Leitner system
+  - **In Review tab**:
+    - `Enter`: Reveal word definition
+    - `y` / `n`: Mark card as correct / incorrect
+  - **In Games tab**:
+    - `↑ / ↓`: Move cursor
+    - `Enter`: Select game (Hangman, Matcher, Quiz, Flashcards)
 
 ---
 
 ## 🛠️ Stack & Architecture
 
-- **Go 1.22+**
+- **Go 1.26+**
 - **Bubble Tea + Lip Gloss**: Terminal UI framework and design styling
 - **Cobra**: Command line interface framework
 - **Pure Go SQLite (`modernc.org/sqlite`)**: Zero-dependency SQLite driver (allows seamless cross-compilation without CGO/gcc)

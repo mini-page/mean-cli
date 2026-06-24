@@ -95,6 +95,14 @@ func (db *DB) migrate() error {
 		key   TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS learning_words (
+		word           TEXT PRIMARY KEY,
+		box            INTEGER DEFAULT 1,
+		next_review_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		interval_days  INTEGER DEFAULT 1,
+		last_reviewed  DATETIME
+	);
 	`
 	_, err := db.db.Exec(schema)
 	return err

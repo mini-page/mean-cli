@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mean — Terminal Vocabulary OS & Language Learning System</title>
+  <meta name="description" content="mean is a fast, offline-first dictionary, Leitner spaced repetition system, and vocabulary building suite for developers in the terminal.">
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #09090b;
+      --bg-card: #18181b;
+      --primary: #7c3aed;
+      --primary-light: #a78bfa;
+      --primary-dark: #1f1b4e;
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #27272a;
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Selection Styles */
+    ::selection {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    /* Containers */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* Header styling */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 0;
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: rgba(9, 9, 11, 0.8);
+    }
+
+    .header-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      font-size: 1.8rem;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(to right, var(--text), var(--primary-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+    }
+
+    .nav-btn {
+      background-color: var(--primary);
+      color: white;
+      padding: 0.5rem 1.25rem;
+      border-radius: 9999px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .nav-btn:hover {
+      background-color: transparent;
+      border-color: var(--primary-light);
+      color: var(--primary-light);
+      box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 6rem 0 4rem 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, rgba(9, 9, 11, 0) 70%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      background-color: var(--primary-dark);
+      border: 1px solid var(--primary);
+      color: var(--primary-light);
+      padding: 0.35rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 2rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-title {
+      font-size: 4rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, #c084fc, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 700px;
+      margin: 0 auto 3rem auto;
+    }
+
+    /* Install terminal block */
+    .install-block {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      max-width: 480px;
+      margin: 0 auto 4rem auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+    }
+
+    .install-block:hover {
+      border-color: var(--primary);
+    }
+
+    .install-text {
+      color: var(--success);
+      user-select: all;
+    }
+
+    .install-text span {
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .copy-icon {
+      font-size: 1.2rem;
+      opacity: 0.6;
+      transition: opacity 0.2s ease;
+    }
+
+    .install-block:hover .copy-icon {
+      opacity: 1;
+    }
+
+    /* Interactive Terminal Demo Widget */
+    .terminal-demo {
+      background-color: #0b0b0f;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 900px;
+      margin: 0 auto 6rem auto;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      text-align: left;
+    }
+
+    .terminal-header {
+      background-color: #121217;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background-color: #ef4444; }
+    .dot-yellow { background-color: #f59e0b; }
+    .dot-green { background-color: #10b981; }
+
+    .terminal-title {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-left: auto;
+      margin-right: auto;
+      transform: translateX(-18px);
+    }
+
+    .terminal-body {
+      display: flex;
+      min-height: 380px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    /* Terminal left navigation menu styling */
+    .terminal-sidebar {
+      width: 220px;
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 1rem;
+      background-color: #0d0d12;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .sidebar-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--primary-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      padding-left: 0.5rem;
+    }
+
+    .sidebar-item {
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .sidebar-item:hover, .sidebar-item.active {
+      color: var(--text);
+      background-color: rgba(124, 58, 237, 0.1);
+    }
+
+    .sidebar-item.active {
+      border-left: 3px solid var(--primary-light);
+      padding-left: calc(0.75rem - 3px);
+      font-weight: 600;
+    }
+
+    /* Terminal content viewport styling */
+    .terminal-content {
+      flex: 1;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .term-view-pane {
+      display: none;
+    }
+
+    .term-view-pane.active {
+      display: block;
+    }
+
+    .term-header-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .term-word-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-decoration: underline;
+      color: var(--text);
+    }
+
+    .term-word-ipa {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .term-badge {
+      background-color: var(--primary-light);
+      color: var(--primary-dark);
+      padding: 0.1rem 0.5rem;
+      font-weight: 700;
+      font-size: 0.75rem;
+      border-radius: 3px;
+    }
+
+    .term-section-header {
+      background-color: var(--primary-light);
+      color: #111827;
+      padding: 0.1rem 0.5rem;
+      font-weight: 700;
+      font-size: 0.75rem;
+      display: inline-block;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .term-def-list {
+      margin-left: 1rem;
+      list-style-type: decimal;
+      padding-left: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .term-ex {
+      color: var(--text-muted);
+      font-style: italic;
+      margin-left: 0.25rem;
+      display: block;
+    }
+
+    .term-list-pills {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .term-pill {
+      font-size: 0.75rem;
+      padding: 0.1rem 0.5rem;
+      font-weight: 700;
+      border-radius: 2px;
+    }
+
+    .pill-syn { background-color: var(--success); color: #111827; }
+    .pill-ant { background-color: var(--danger); color: #111827; }
+
+    /* Terminal input prompt block styling */
+    .terminal-input-prompt {
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      background-color: rgba(9, 9, 11, 0.6);
+      margin-top: 1.5rem;
+    }
+
+    .terminal-input-cursor {
+      width: 8px;
+      height: 15px;
+      background-color: var(--success);
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      from, to { background-color: transparent }
+      50% { background-color: var(--success) }
+    }
+
+    /* Feature Grid Section */
+    .features {
+      padding: 4rem 0;
+      background-color: rgba(24, 24, 27, 0.3);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 2.25rem;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2.5rem;
+    }
+
+    .feature-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.1);
+    }
+
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+      display: inline-block;
+    }
+
+    .feature-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .feature-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* CLI Examples List */
+    .cli-examples {
+      padding: 6rem 0;
+    }
+
+    .cli-tabs-nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .cli-tab-btn {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.5rem 1.25rem;
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cli-tab-btn:hover, .cli-tab-btn.active {
+      border-color: var(--primary);
+      color: var(--text);
+      background-color: var(--primary-dark);
+    }
+
+    .cli-terminal-window {
+      background-color: #0b0b0f;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      max-width: 760px;
+      margin: 0 auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      text-align: left;
+    }
+
+    .cli-prompt {
+      color: var(--success);
+      margin-bottom: 0.75rem;
+    }
+
+    .cli-prompt span {
+      color: var(--primary-light);
+    }
+
+    .cli-output {
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    /* Footer styling */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 0;
+      background-color: #07070a;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer p {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-title {
+        font-size: 2.75rem;
+      }
+      .terminal-body {
+        flex-direction: column;
+      }
+      .terminal-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container header-nav">
+      <div class="logo-container">
+        <span class="logo-icon">📖</span>
+        <span class="logo-text">mean-cli</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#examples" class="nav-link">CLI Commands</a>
+        <a href="https://github.com/mini-page/mean-cli" class="nav-btn">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">🔮  Terminal Vocabulary OS</div>
+      <h1 class="hero-title">A Language Learning System<br><span>Built for Developers</span></h1>
+      <p class="hero-subtitle">mean transforms your terminal into a spaced-repetition vocabulary trainer. Learn word networks, track streaks, study with offline-first local SQL caches, play TUI games, and run local translation APIs.</p>
+      
+      <div class="install-block" id="installBlock" onclick="copyInstallCmd()">
+        <span class="install-text"><span>$</span> git clone https://github.com/mini-page/mean-cli</span>
+        <span class="copy-icon">📋</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard Terminal Preview Widget -->
+  <section class="container">
+    <div class="terminal-demo">
+      <div class="terminal-header">
+        <div class="terminal-dot dot-red"></div>
+        <div class="terminal-dot dot-yellow"></div>
+        <div class="terminal-dot dot-green"></div>
+        <div class="terminal-title">mean — Terminal Dashboard</div>
+      </div>
+      
+      <div class="terminal-body">
+        <!-- Sidebar Navigation -->
+        <div class="terminal-sidebar">
+          <div class="sidebar-section-title">OS Menu</div>
+          <div class="sidebar-item active" onclick="switchDemoTab(this, 'demoSearch')">🔍 Lookup</div>
+          <div class="sidebar-item" onclick="switchDemoTab(this, 'demoLeitner')">🔁 Review (SRM)</div>
+          <div class="sidebar-item" onclick="switchDemoTab(this, 'demoGames')">🎮 Games</div>
+          <div class="sidebar-item" onclick="switchDemoTab(this, 'demoStats')">📊 Analytics</div>
+        </div>
+        
+        <!-- Tab Views Content -->
+        <div class="terminal-content">
+          <!-- SEARCH TAB -->
+          <div id="demoSearch" class="term-view-pane active">
+            <div class="term-header-line">
+              <div>
+                <span class="term-word-title">ephemeral</span>
+                <span class="term-word-ipa">/ɪˈfɛm.ər.əl/</span>
+              </div>
+              <span class="term-badge">GRE/Advanced</span>
+            </div>
+            
+            <div>
+              <div class="term-section-header">DEFINITIONS</div>
+              <ul class="term-def-list">
+                <li>
+                  <strong>adjective</strong>: Lasting for a very short time; transient.
+                  <span class="term-ex">"Fame in the age of social media is often ephemeral."</span>
+                </li>
+              </ul>
+              
+              <div class="term-section-header">SYNONYMS</div>
+              <div class="term-list-pills">
+                <span class="term-pill pill-syn">transient</span>
+                <span class="term-pill pill-syn">fleeting</span>
+                <span class="term-pill pill-syn">momentary</span>
+                <span class="term-pill pill-syn">short-lived</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- LEITNER REVIEW TAB -->
+          <div id="demoLeitner" class="term-view-pane">
+            <div class="term-header-line">
+              <span style="font-weight:700; color:var(--primary-light)">🔁 Leitner Spaced Repetition Review</span>
+              <span style="color:var(--text-muted)">Card 1 of 3</span>
+            </div>
+            
+            <div style="margin: 1.5rem 0;">
+              <p style="color:var(--text-muted); margin-bottom: 0.5rem;">What is the definition of:</p>
+              <h2 style="font-size: 1.5rem; color: var(--success); font-weight:800; letter-spacing: 0.05em;">BENEVOLENT</h2>
+            </div>
+            
+            <div style="border-top:1px dashed var(--border); padding-top: 1rem;">
+              <p style="font-weight: 700; margin-bottom: 0.25rem;">Definition:</p>
+              <p>Well meaning and kindly; expressing goodwill or friendly feelings.</p>
+              
+              <p style="margin-top: 1rem; color: var(--text-muted);">Did you remember it correctly?</p>
+              <div style="display:flex; gap:1.5rem; margin-top:0.5rem; font-weight:700;">
+                <span style="color:var(--success)">[y] Yes</span>
+                <span style="color:var(--danger)">[n] No</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- GAMES TAB -->
+          <div id="demoGames" class="term-view-pane">
+            <div class="term-header-line">
+              <span style="font-weight:700; color:var(--primary-light)">🎮 Study & Game Center</span>
+            </div>
+            
+            <p style="color:var(--text-muted); margin-bottom: 1.25rem;">Choose your vocabulary training mode:</p>
+            
+            <div style="display:flex; flex-direction:column; gap:0.5rem;">
+              <div style="color:var(--success); font-weight:700;">▶ 1. Hangman <span style="color:var(--text-muted); font-weight:400; font-size:0.8rem;">· Classic letter guessing vocabulary game</span></div>
+              <div style="padding-left:1.25rem;">2. Definition Matcher <span style="color:var(--text-muted); font-size:0.8rem;">· Multiple choice definition puzzle</span></div>
+              <div style="padding-left:1.25rem;">3. Spelling Quiz <span style="color:var(--text-muted); font-size:0.8rem;">· Type the word from its definitions</span></div>
+              <div style="padding-left:1.25rem;">4. Active Flashcards <span style="color:var(--text-muted); font-size:0.8rem;">· Flippable active recall cards deck</span></div>
+            </div>
+          </div>
+
+          <!-- STATS TAB -->
+          <div id="demoStats" class="term-view-pane">
+            <div class="term-header-line">
+              <span style="font-weight:700; color:var(--primary-light)">📊 Vocabulary OS Analytics</span>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 200px 1fr; gap:0.75rem; margin-top:1rem; font-size:0.9rem;">
+              <span style="color:var(--text-muted)">Pipeline Words:</span>
+              <strong>318</strong>
+              
+              <span style="color:var(--text-muted)">Starred/Favorites:</span>
+              <strong>72</strong>
+              
+              <span style="color:var(--text-muted)">Mastered (Box 5):</span>
+              <strong>48</strong>
+              
+              <span style="color:var(--text-muted)">Current Streak:</span>
+              <strong style="color:var(--warning)">🔥 27 days</strong>
+              
+              <span style="color:var(--text-muted)">Max Active Streak:</span>
+              <strong style="color:var(--primary-light)">🏆 63 days</strong>
+              
+              <span style="color:var(--text-muted)">Top Category Focus:</span>
+              <strong>Cybersecurity Domain</strong>
+            </div>
+          </div>
+
+          <!-- Terminal command line input mock -->
+          <div class="terminal-input-prompt">
+            <span>mean &gt;</span>
+            <span id="termDemoInputText" style="color:var(--text)">ephemeral</span>
+            <div class="terminal-input-cursor"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid Section -->
+  <section class="features" id="features">
+    <div class="container">
+      <h2 class="section-title">Features That Differentiate Mean</h2>
+      <div class="features-grid">
+        <!-- Leitner Spaced Repetition -->
+        <div class="feature-card">
+          <span class="feature-icon">🔁</span>
+          <h3 class="feature-title">Leitner Spaced Repetition</h3>
+          <p class="feature-desc">Active recall sessions schedule words across 5 progressive confidence boxes. Mastered words are enqueued less frequently, creating long term retention.</p>
+        </div>
+        
+        <!-- Word Intensity Ladders -->
+        <div class="feature-card">
+          <span class="feature-icon">🪜</span>
+          <h3 class="feature-title">Word Intensity Ladders</h3>
+          <p class="feature-desc">Quickly view synonyms ordered by semantic strength. Ascend from common descriptions to complex academic equivalents.</p>
+        </div>
+        
+        <!-- Predefined Domains -->
+        <div class="feature-card">
+          <span class="feature-icon">🛡️</span>
+          <h3 class="feature-title">Professional Domain Modes</h3>
+          <p class="feature-desc">Study specific glossaries for specialized fields. Includes built-in decks for Cybersecurity, Finance, Legal, Medical, and GRE/IELTS.</p>
+        </div>
+
+        <!-- TUI interactive games -->
+        <div class="feature-card">
+          <span class="feature-icon">🎮</span>
+          <h3 class="feature-title">Gamified Vocabulary Suite</h3>
+          <p class="feature-desc">Learn while playing. Features Hangman, Definition Matchers, Spelling Quizzes, and Flashcards playable in both standard CLI and full-screen TUI.</p>
+        </div>
+
+        <!-- Developer Friendly API -->
+        <div class="feature-card">
+          <span class="feature-icon">📡</span>
+          <h3 class="feature-title">Local JSON Server</h3>
+          <p class="feature-desc">Spin up a local REST API endpoint on <code>localhost:8080</code> with <code>mean serve</code>. Programmatic queries get immediate definition formats.</p>
+        </div>
+
+        <!-- CLI Pipes -->
+        <div class="feature-card">
+          <span class="feature-icon">🐚</span>
+          <h3 class="feature-title">Unix Pipe Support</h3>
+          <p class="feature-desc">Supports stdin pipe flows. Stream outputs directly from other utilities (e.g. <code>echo "recursion" | mean --json</code>).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLI Examples List Section -->
+  <section class="cli-examples" id="examples">
+    <div class="container" style="text-align: center;">
+      <h2 class="section-title">Missing Core & Learning Commands</h2>
+      
+      <div class="cli-tabs-nav">
+        <button class="cli-tab-btn active" onclick="switchCliTab(this, 'cliRelated')">mean related</button>
+        <button class="cli-tab-btn" onclick="switchCliTab(this, 'cliCompare')">mean compare</button>
+        <button class="cli-tab-btn" onclick="switchCliTab(this, 'cliLadder')">mean ladder</button>
+        <button class="cli-tab-btn" onclick="switchCliTab(this, 'cliTranslate')">mean translate</button>
+      </div>
+
+      <div class="cli-terminal-window">
+        <!-- RELATED -->
+        <div id="cliRelated" class="term-view-pane active">
+          <div class="cli-prompt">$ <span>mean related recursion</span></div>
+          <div class="cli-output">
+🔗  Related to: RECURSION
+────────────────────────────────────────
+  • iteration
+  • loop
+  • stack
+  • function
+  • call
+  • algorithmic
+  • tail-call</div>
+        </div>
+
+        <!-- COMPARE -->
+        <div id="cliCompare" class="term-view-pane">
+          <div class="cli-prompt">$ <span>mean compare affect effect</span></div>
+          <div class="cli-output">
+⚖️  Vocabulary Comparison: AFFECT vs EFFECT
+────────────────────────────────────────────────────────────
+  AFFECT (verb)
+    * Definition: Have an effect on; make a difference to.
+      Example: "The dampness began to affect my health."
+    * Synonyms: influence, impact, alter
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+  EFFECT (noun)
+    * Definition: A change which is a result or consequence of an action.
+      Example: "The school principal's move had a positive effect."
+    * Synonyms: result, consequence, outcome</div>
+        </div>
+
+        <!-- LADDER -->
+        <div id="cliLadder" class="term-view-pane">
+          <div class="cli-prompt">$ <span>mean ladder happy</span></div>
+          <div class="cli-output">
+🪜  Word Intensity Ladder for: HAPPY
+──────────────────────────────────────────────────
+  [Base] happy
+    pleased
+      delighted
+        joyful
+          ecstatic
+            euphoric</div>
+        </div>
+
+        <!-- TRANSLATE -->
+        <div id="cliTranslate" class="term-view-pane">
+          <div class="cli-prompt">$ <span>mean translate hello hindi</span></div>
+          <div class="cli-output">
+🌐  Translation
+────────────────────────────────────────
+  English :  hello
+  Hindi (hi) :  नमस्ते</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>📖 mean-cli is a free open-source terminal system licensed under MIT.</p>
+      <p>&copy; 2026 mini-page. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Tab switching for terminal mockup
+    function switchDemoTab(element, targetTabId) {
+      // Toggle active states on buttons
+      const items = document.querySelectorAll('.sidebar-item');
+      items.forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+
+      // Toggle views
+      const views = document.querySelectorAll('.terminal-content .term-view-pane');
+      views.forEach(el => el.classList.remove('active'));
+      document.getElementById(targetTabId).classList.add('active');
+
+      // Sync command prompt mockup
+      const inputs = {
+        'demoSearch': 'ephemeral',
+        'demoLeitner': 'review',
+        'demoGames': 'game matcher',
+        'demoStats': 'stats'
+      };
+      document.getElementById('termDemoInputText').innerText = inputs[targetTabId] || '';
+    }
+
+    // Tab switching for CLI examples
+    function switchCliTab(element, targetTabId) {
+      const btns = document.querySelectorAll('.cli-tab-btn');
+      btns.forEach(btn => btn.classList.remove('active'));
+      element.classList.add('active');
+
+      const views = document.querySelectorAll('.cli-terminal-window .term-view-pane');
+      views.forEach(el => el.classList.remove('active'));
+      document.getElementById(targetTabId).classList.add('active');
+    }
+
+    // Clipboard install command
+    function copyInstallCmd() {
+      const text = "git clone https://github.com/mini-page/mean-cli";
+      navigator.clipboard.writeText(text).then(() => {
+        const badge = document.querySelector('.copy-icon');
+        badge.innerText = "✓ Copied!";
+        setTimeout(() => {
+          badge.innerText = "📋";
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
