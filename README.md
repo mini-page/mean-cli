@@ -8,14 +8,14 @@ A fast, beautiful, offline-first dictionary, Leitner spaced repetition review sy
 
 ## ✨ Features
 
-- **TUI Navigation Dashboard**: Double-panel sidebar navigation linking Lookup, Starred lists, Search History, Daily Learning pipeline, Spaced Repetition reviews, Analytics, and Games.
-- **Leitner Spaced Repetition (SRM)**: Active recall session queues that automatically schedule practice based on 5 progressive confidence boxes.
-- **Word Intensity Ladders**: Synonyms ranked and displayed as stair-stepping ladders mapping semantic strength.
-- **Developer Features**: Global JSON flag `--json` and full stdin stream pipe support (e.g. `echo recursion | mean --json`).
-- **Local API Server**: Start a lightweight local definition and analytics REST API on `localhost:8080` with `mean serve`.
-- **Predefined Domain Focuses**: Domain-specific vocabularies for fields like `cybersecurity`, `finance`, `medical`, `legal`, and `business`.
-- **Offline Cache**: First search fetches from API and caches locally in a lightweight SQLite database for instant offline access.
-- **Pronunciation Audio**: TUI voice player and background audio utility for multi-platform native playback.
+- **TUI Navigation Dashboard**: Double-panel sidebar navigation linking **Lookup**, **Starred lists**, **Search History**, **Daily Learning pipeline**, **Spaced Repetition reviews**, **Analytics**, and **Games**.
+- **Leitner Spaced Repetition (SRM)**: Active recall session queues that automatically schedule practice based on **5 progressive confidence boxes**.
+- **Word Intensity Ladders**: Synonyms ranked and displayed as **stair-stepping ladders** mapping semantic strength.
+- **Developer Features**: Global JSON flag **`--json`** and **full stdin stream pipe** support (e.g. `echo recursion | mean --json`).
+- **Local API Server**: Start a lightweight local definition and analytics REST API on `localhost:8080` with **`mean serve`**.
+- **Predefined Domain Focuses**: Domain-specific vocabularies for fields like **`cybersecurity`**, **`finance`**, **`medical`**, **`legal`**, and **`business`**.
+- **Offline Cache**: First search fetches from API and caches locally in a lightweight **SQLite database** for instant offline access.
+- **Pronunciation Audio**: TUI voice player and background audio utility for **multi-platform native playback**.
 
 ---
 
@@ -24,12 +24,12 @@ A fast, beautiful, offline-first dictionary, Leitner spaced repetition review sy
 ### Using Go
 If you have Go installed on your system:
 ```bash
-go install github.com/umang/mean-cli/cmd/mean@latest
+go install github.com/mini-page/mean-cli/cmd/mean@latest
 ```
 
 ### Manual Compilation
 ```bash
-git clone https://github.com/umang/mean-cli.git
+git clone https://github.com/mini-page/mean-cli.git
 cd mean-cli
 go build -o mean.exe ./cmd/mean
 ```
